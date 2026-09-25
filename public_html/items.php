@@ -14,11 +14,14 @@ $category = trim($_GET['category'] ?? '');
 $page     = max(1, (int) ($_GET['page'] ?? 1));
 $perPage  = 9;
 
-// ---- ② WHERE句を動的に組み立てる（必ずプレースホルダを使うこと）------------
-// TODO（中級）: $keyword が空でなければ "name LIKE :keyword" 相当の条件を追加する
-//   ヒント：LIKE検索では % と _ がワイルドカードとして特別な意味を持つため、
-//   ユーザー入力にこれらの文字が含まれていた場合はエスケープしてから渡すこと。
-// TODO（中級）: $category が空でなければ "category = :category" 相当の条件を追加する
+$sortOptions = [
+    'new'        => 'created_at DESC',
+    'price_asc'  => 'price ASC',
+    'price_desc' => 'price DESC',
+];
+$sort    = $_GET['sort'] ?? 'new';
+$orderBy = $sortOptions[$sort] ?? $sortOptions['new'];
+
 $conditions = [];
 $params     = [];
 
@@ -50,7 +53,7 @@ $offset     = ($page - 1) * $perPage;
 $sql = "SELECT id, name, price, image, stock, category
         FROM items
         {$whereSql}
-        ORDER BY created_at DESC
+        ORDER BY {$orderBy}
         LIMIT {$perPage} OFFSET {$offset}";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -62,8 +65,13 @@ $categories = $pdo->query('SELECT DISTINCT category FROM items WHERE category IS
 // TODO（上級）: ページ送りリンクで検索条件を保持するためのクエリ文字列を組み立てる関数を作る
 function buildQuery(array $overrides = []): string
 {
-    // ヒント：$_GET の keyword / category / page を土台に、$overrides で上書きする
-    return '';
+     $base = [
+        'keyword'  => $_GET['keyword'] ?? '',
+        'category' => $_GET['category'] ?? '',
+        'sort'     => $_GET['sort'] ?? 'new',
+        'page'     => $_GET['page'] ?? 1,
+    ];
+    return http_build_query(array_merge($base, $overrides));
 }
 ?>
 <!DOCTYPE html>
@@ -88,6 +96,11 @@ function buildQuery(array $overrides = []): string
                         <?= htmlspecialchars($c) ?>
                     </option>
                 <?php endforeach; ?>
+            </select>
+             <select name="sort">
+                <option value="new" <?= $sort === 'new' ? 'selected' : '' ?>>新着順</option>
+                <option value="price_asc" <?= $sort === 'price_asc' ? 'selected' : '' ?>>価格が安い順</option>
+                <option value="price_desc" <?= $sort === 'price_desc' ? 'selected' : '' ?>>価格が高い順</option>
             </select>
             <button type="submit">検索</button>
         </form>
